@@ -1,0 +1,492 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <iomanip>
+#include <graphics.h>
+#include "currencyconversions.h"
+using namespace std;
+
+// -------------------- User Class --------------------
+class User {
+    int userID;
+    string name, email, phone;
+public:
+    User(string n, string e, string p) {
+        name = n;
+        email = e;
+        phone = p;
+        userID = 1;
+
+        ifstream fin("user_logs.txt");
+        string line;
+        while (getline(fin, line)) {
+            if (line.find("User ID:") != string::npos) {
+                userID++;
+            }
+        }
+        fin.close();
+    }
+
+    void logToFile() {
+        ofstream fout("user_logs.txt", ios::app);
+        fout << "\nUser ID: " << userID
+             << ", Name: " << name
+             << ", Email: " << email
+             << ", Phone: " << phone << endl;
+        fout.close();
+    }
+
+    int getID() {
+        return userID;
+    }
+
+    // -------------------- Operator Overloads --------------------
+
+    // Equality operator: compare by user ID
+    bool operator==(const User& other) {
+        return userID == other.userID;
+    }
+
+    // Stream insertion operator: formatted display of User
+    friend ostream& operator<<(ostream& out, const User& u) {
+        out << "User ID: " << u.userID
+            << ", Name: " << u.name
+            << ", Email: " << u.email
+            << ", Phone: " << u.phone;
+        return out;
+    }
+};
+
+
+// ---------------------- Currency Manager ----------------------
+class CurrencyManager {
+    Currency* currencies[21];
+    string codes[21];
+    int count;
+public:
+    CurrencyManager() {
+        count = 21;
+        currencies[0]  = new Pakistani_Rupee(); codes[0] = "PKR";
+        currencies[1]  = new US_Dollar(); codes[1] = "USD";
+        currencies[2]  = new Euro(); codes[2] = "EUR";
+        currencies[3]  = new British_Pound(); codes[3] = "GBP";
+        currencies[4]  = new Australian_Dollar(); codes[4] = "AUD";
+        currencies[5]  = new Canadian_Dollar(); codes[5] = "CAD";
+        currencies[6]  = new Saudi_Riyal(); codes[6] = "SAR";
+        currencies[7]  = new UAE_Dirham(); codes[7] = "AED";
+        currencies[8]  = new Japanese_Yen(); codes[8] = "JPY";
+        currencies[9]  = new Chinese_Yuan(); codes[9] = "CNY";
+        currencies[10] = new Indian_Rupee(); codes[10] = "INR";
+        currencies[11] = new Nigerian_Naira(); codes[11] = "NGN";
+        currencies[12] = new New_Zealand_Dollar(); codes[12] = "NZD";
+        currencies[13] = new Kuwaiti_Dinar(); codes[13] = "KWD";
+        currencies[14] = new Iranian_Rial(); codes[14] = "IRR";
+        currencies[15] = new Russian_Ruble(); codes[15] = "RUB";
+        currencies[16] = new Malaysian_Ringgit(); codes[16] = "MYR";
+        currencies[17] = new Indonesian_Rupiah(); codes[17] = "IDR";
+        currencies[18] = new Turkish_Lira(); codes[18] = "TRY";
+        currencies[19] = new Egyptian_Pound(); codes[19] = "EGP";
+        currencies[20] = new Qatari_Riyal(); codes[20] = "QAR";
+    }
+    ~CurrencyManager() {
+        for (int i = 0; i < count; i++) delete currencies[i];
+    }
+
+    Currency* getCurrency(const string& code) {
+        string upperCode = code;
+        for (int i = 0; i < upperCode.length(); i++)
+            upperCode[i] = toupper(upperCode[i]);
+        for (int i = 0; i < count; i++) {
+            if (codes[i] == upperCode) return currencies[i];
+        }
+        return NULL;
+    }
+
+    void listCurrencies() const {
+        cout << "\nAvailable Currencies:\n";
+        for (int i = 0; i < count; i++)
+            cout << codes[i] << " - " << currencies[i]->getName() << endl;
+    }
+
+    void showBoard() const {
+        cout << left << setw(25) << "Currency Name" << setw(10) << "Code" << setw(15) << "Rate to PKR" << endl;
+        cout << "-------------------------------------------------------------\n";
+        for (int i = 0; i < count; i++)
+            cout << left << setw(25) << currencies[i]->getName() << setw(10) << codes[i]
+                 << setw(15) << fixed << setprecision(2) << currencies[i]->convertToPKR(1.0) << endl;
+    }
+
+    string getCode(int index) const { return codes[index]; }
+};
+
+// ---------------------- Logger ----------------------
+void logConversion(int userID, const string& from, const string& to, double amount, double result) {
+    ofstream log("user_logs.txt", ios::app);
+    log << "Conversion (User " << userID << "): " << from << " -> PKR -> " << to
+        << " | Amount: " << amount << " => " << result << endl;
+    log.close();
+
+    ofstream usage("graph_log.txt", ios::app);
+    usage << to << endl;
+    usage.close();
+}
+
+// ---------------------- Graph Function ----------------------
+void showGraph() {
+    ifstream fin("graph_log.txt");
+    if (!fin.is_open()) return;
+
+    string codes[100];
+    int counts[100];
+    int size = 0;
+    string line;
+
+    while (getline(fin, line)) {
+        bool found = false;
+        for (int i = 0; i < size; i++) {
+            if (codes[i] == line) {
+                counts[i]++;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            codes[size] = line;
+            counts[size] = 1;
+            size++;
+        }
+    }
+    fin.close();
+
+    initwindow(1000, 600, "Currency Usage Graph");
+    setbkcolor(WHITE);
+    cleardevice();
+
+    int x = 100, y = 500, width = 30, spacing = 20, maxHeight = 300;
+    int maxCount = 1;
+    for (int i = 0; i < size; i++) {
+        if (counts[i] > maxCount) maxCount = counts[i];
+    }
+
+    for (int i = 0; i < size; i++) {
+        int height = (counts[i] * maxHeight) / maxCount;
+        setfillstyle(SOLID_FILL, (i + 2) % 15 + 1);
+        bar(x, y - height, x + width, y);
+        setcolor(BLACK);
+        outtextxy(x, y + 10, (char*)codes[i].c_str());
+        x += width + spacing;
+    }
+
+    delay(6000);
+    closegraph();
+}
+
+// ---------------------- Welcome ----------------------
+void showWelcomeScreen() {
+    initwindow(600, 300, "Welcome");
+    setbkcolor(BLUE);
+    cleardevice();
+    setcolor(YELLOW);
+    settextstyle(BOLD_FONT, HORIZ_DIR, 3);
+    outtextxy(50, 100, (char*)"Welcome to Currency Converter!");
+    delay(2500);
+    closegraph();
+}
+
+// ---------------------- Main Function ----------------------
+int main() {
+    showWelcomeScreen();
+
+    string name, email, phone;
+    cout << "Enter your name: "; getline(cin, name);
+    cout << "Enter email: "; getline(cin, email);
+    cout << "Enter phone: "; getline(cin, phone);
+
+    User user(name, email, phone);
+    user.logToFile();
+    cout << "\nAccount created successfully!\n";
+
+    CurrencyManager manager;
+
+    while (true) {
+        cout << "\nMain Menu:\n";
+        cout << "a. Convert Currency\n";
+        cout << "b. View Board\n";
+        cout << "c. Exit\n";
+        cout << "\nEnter your choice: ";
+        char choice;
+        cin >> choice;
+        cin.ignore();
+
+        ofstream log("user_logs.txt", ios::app);
+        log << "User " << user.getID() << " selected option " << choice << endl;
+        log.close();
+
+        if (choice == 'a' || choice == 'A') {
+            manager.listCurrencies();
+            cout<<"\nSelect currency you want to convert to PKR or any other currency: "<<endl;
+            string fromCode, toCode;
+            double amount;
+            cout << "\nFrom: "; cin >> fromCode;
+            cout << "To: "; cin >> toCode;
+            cout << "Amount: "; cin >> amount;
+
+            Currency* from = manager.getCurrency(fromCode);
+            Currency* to = manager.getCurrency(toCode);
+
+            if (from && to) {
+                double inPKR = from->convertToPKR(amount);
+                double result = to->convertFromPKR(inPKR);
+                cout << fixed << setprecision(2)
+                     << amount << " " << fromCode
+                     << " = " << result << " " << toCode << endl;
+                logConversion(user.getID(), fromCode, toCode, amount, result);
+            } else {
+                cout << "Invalid currency code!\n";
+            }
+        }
+        else if (choice == 'b' || choice == 'B') {
+            manager.showBoard();
+        }
+        else if (choice == 'c' || choice == 'C') {
+            cout << "\nThanks for using our converter!\n";
+            showGraph();
+            break;
+        }
+        else {
+            cout << "Invalid option. Try again.\n";
+        }
+    }
+
+    return 0;
+}
+
+
+
+CONVERSION.H
+
+#ifndef CURRENCYCONVERSIONS_H
+#define CURRENCYCONVERSIONS_H
+
+#include <string>
+using namespace std;
+
+// Abstract Base Class
+class Currency {
+protected:
+    string name;
+    double rateToPKR;
+public:
+    Currency(string n, double rate) : name(n), rateToPKR(rate) {}
+    virtual double convertToPKR(double amount) const = 0;
+    virtual double convertFromPKR(double pkrAmount) const = 0;
+    virtual string getName() const { return name; }
+    virtual ~Currency() {}
+};
+
+// PKR (used as reference base)
+class Pakistani_Rupee : public Currency {
+public:
+    Pakistani_Rupee() : Currency("Pakistani Rupee", 1.0) {}
+    double convertToPKR(double amount) const override { return amount; }
+    double convertFromPKR(double amount) const override { return amount; }
+};
+
+// Derived Currency Classes
+class US_Dollar : public Currency {
+public:
+    US_Dollar() : Currency("US Dollar", 278.00) {}
+    double convertToPKR(double amount) const override { return amount * rateToPKR; }
+    double convertFromPKR(double pkr) const override { return pkr / rateToPKR; }
+};
+
+class Euro : public Currency {
+public:
+    Euro() : Currency("Euro", 300.50) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class British_Pound : public Currency {
+public:
+    British_Pound() : Currency("British Pound", 350.30) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Australian_Dollar : public Currency {
+public:
+    Australian_Dollar() : Currency("Australian Dollar", 185.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Canadian_Dollar : public Currency {
+public:
+    Canadian_Dollar() : Currency("Canadian Dollar", 205.10) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Saudi_Riyal : public Currency {
+public:
+    Saudi_Riyal() : Currency("Saudi Riyal", 74.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class UAE_Dirham : public Currency {
+public:
+    UAE_Dirham() : Currency("UAE Dirham", 75.50) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Japanese_Yen : public Currency {
+public:
+    Japanese_Yen() : Currency("Japanese Yen", 1.90) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Chinese_Yuan : public Currency {
+public:
+    Chinese_Yuan() : Currency("Chinese Yuan", 38.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Indian_Rupee : public Currency {
+public:
+    Indian_Rupee() : Currency("Indian Rupee", 3.35) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Nigerian_Naira : public Currency {
+public:
+    Nigerian_Naira() : Currency("Nigerian Naira", 0.18) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class New_Zealand_Dollar : public Currency {
+public:
+    New_Zealand_Dollar() : Currency("New Zealand Dollar", 170.25) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Kuwaiti_Dinar : public Currency {
+public:
+    Kuwaiti_Dinar() : Currency("Kuwaiti Dinar", 910.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Iranian_Rial : public Currency {
+public:
+    Iranian_Rial() : Currency("Iranian Rial", 0.0065) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Russian_Ruble : public Currency {
+public:
+    Russian_Ruble() : Currency("Russian Ruble", 3.10) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Malaysian_Ringgit : public Currency {
+public:
+    Malaysian_Ringgit() : Currency("Malaysian Ringgit", 58.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Indonesian_Rupiah : public Currency {
+public:
+    Indonesian_Rupiah() : Currency("Indonesian Rupiah", 0.018) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Turkish_Lira : public Currency {
+public:
+    Turkish_Lira() : Currency("Turkish Lira", 17.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Egyptian_Pound : public Currency {
+public:
+    Egyptian_Pound() : Currency("Egyptian Pound", 5.80) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+class Qatari_Riyal : public Currency {
+public:
+    Qatari_Riyal() : Currency("Qatari Riyal", 76.00) {}
+    double convertToPKR(double a) const override { return a * rateToPKR; }
+    double convertFromPKR(double p) const override { return p / rateToPKR; }
+};
+
+#endif
+  
+
+COVERSIONS#2 (Constructor Overloading)
+
+#ifndef CURRENCYCONVERSIONS_H
+#define CURRENCYCONVERSIONS_H
+
+#include <string>
+using namespace std;
+
+// Abstract Base Class
+class Currency {
+protected:
+    string name;
+    double rateToPKR;
+public:
+    Currency(string n, double rate) : name(n), rateToPKR(rate) {}
+    virtual double convertToPKR(double amount) const = 0;
+    virtual double convertFromPKR(double pkrAmount) const = 0;
+    virtual string getName() const { return name; }
+    virtual ~Currency() {}
+};
+
+// Derived Currency Classes with Constructor Overloading (Shorter)
+#define DEFINE_CURRENCY_CLASS(className, defaultName, defaultRate) \
+class className : public Currency { \
+public: \
+    className(string n = defaultName, double r = defaultRate) : Currency(n, r) {} \
+    double convertToPKR(double a) const override { return a * rateToPKR; } \
+    double convertFromPKR(double p) const override { return p / rateToPKR; } \
+};
+
+// Define all currencies using macro
+DEFINE_CURRENCY_CLASS(Pakistani_Rupee, "Pakistani Rupee", 1.0)
+DEFINE_CURRENCY_CLASS(US_Dollar, "US Dollar", 278.00)
+DEFINE_CURRENCY_CLASS(Euro, "Euro", 300.50)
+DEFINE_CURRENCY_CLASS(British_Pound, "British Pound", 350.30)
+DEFINE_CURRENCY_CLASS(Australian_Dollar, "Australian Dollar", 185.00)
+DEFINE_CURRENCY_CLASS(Canadian_Dollar, "Canadian Dollar", 205.10)
+DEFINE_CURRENCY_CLASS(Saudi_Riyal, "Saudi Riyal", 74.00)
+DEFINE_CURRENCY_CLASS(UAE_Dirham, "UAE Dirham", 75.50)
+DEFINE_CURRENCY_CLASS(Japanese_Yen, "Japanese Yen", 1.90)
+DEFINE_CURRENCY_CLASS(Chinese_Yuan, "Chinese Yuan", 38.00)
+DEFINE_CURRENCY_CLASS(Indian_Rupee, "Indian Rupee", 3.35)
+DEFINE_CURRENCY_CLASS(Nigerian_Naira, "Nigerian Naira", 0.18)
+DEFINE_CURRENCY_CLASS(New_Zealand_Dollar, "New Zealand Dollar", 170.25)
+DEFINE_CURRENCY_CLASS(Kuwaiti_Dinar, "Kuwaiti Dinar", 910.00)
+DEFINE_CURRENCY_CLASS(Iranian_Rial, "Iranian Rial", 0.0065)
+DEFINE_CURRENCY_CLASS(Russian_Ruble, "Russian Ruble", 3.10)
+DEFINE_CURRENCY_CLASS(Malaysian_Ringgit, "Malaysian Ringgit", 58.00)
+DEFINE_CURRENCY_CLASS(Indonesian_Rupiah, "Indonesian Rupiah", 0.018)
+DEFINE_CURRENCY_CLASS(Turkish_Lira, "Turkish Lira", 17.00)
+DEFINE_CURRENCY_CLASS(Egyptian_Pound, "Egyptian Pound", 5.80)
+DEFINE_CURRENCY_CLASS(Qatari_Riyal, "Qatari Riyal", 76.00)
+
+#endif

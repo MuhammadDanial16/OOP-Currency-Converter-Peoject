@@ -1,0 +1,407 @@
+USD,US Dollar,278.45
+EUR,Euro,300.20
+GBP,British Pound,350.15
+CAD,Canadian Dollar,205.80
+AUD,Australian Dollar,190.65
+SAR,Saudi Riyal,74.45
+AED,UAE Dirham,76.05
+JPY,Japanese Yen,1.95
+CNY,Chinese Yuan,39.60
+INR,Indian Rupee,3.40
+PKR,Pakistani Rupee,1.00
+NGN,Nigerian Naira,0.18
+NZD,New Zealand Dollar,173.30
+KWD,Kuwaiti Dinar,907.75
+IRR,Iranian Rial,0.0066
+RUB,Russian Ruble,3.10
+MYR,Malaysian Ringgit,58.20
+IDR,Indonesian Rupiah,0.017
+TRY,Turkish Lira,8.15
+EGP,Egyptian Pound,6.50
+QAR,Qatari Riyal,76.80
+
+
+currencyconversions.h file code:
+
+
+#ifndef CURRENCYCONVERSIONS_H
+#define CURRENCYCONVERSIONS_H
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+using namespace std;
+
+class Currency {
+protected:
+    string name;
+    double rateToPKR;
+public:
+    Currency(string n, double rate) : name(n), rateToPKR(rate) {}
+
+    // Operator Overloading
+    double operator*(double amount) {
+        return amount * rateToPKR;
+    }
+
+    double operator/(double pkrAmount) {
+        return pkrAmount / rateToPKR;
+    }
+
+    double convertToPKR(double amount) {
+        return amount * rateToPKR;
+    }
+
+    double convertFromPKR(double pkrAmount) {
+        return pkrAmount / rateToPKR;
+    }
+
+    string getName() {
+        return name;
+    }
+
+    double getRate() {
+        return rateToPKR;
+    }
+};
+
+class CurrencyManager {
+    Currency** currencies;
+    string* codes;
+    int count;
+public:
+    CurrencyManager() {
+        currencies = new Currency*[100];
+        codes = new string[100];
+        count = 0;
+    }
+
+    // Cleanup method (used instead of destructor)
+    void cleanup() {
+        for (int i = 0; i < count; i++) {
+            delete currencies[i];
+        }
+        delete[] currencies;
+        delete[] codes;
+    }
+
+    void loadFromFile(const string& filename) {
+        count = 0;
+        ifstream fin(filename.c_str());
+        string line;
+        while (getline(fin, line)) {
+            size_t pos1 = line.find(',');
+            size_t pos2 = line.rfind(',');
+            if (pos1 != string::npos && pos2 != string::npos && pos1 != pos2) {
+                string code = line.substr(0, pos1);
+                string name = line.substr(pos1 + 1, pos2 - pos1 - 1);
+                string rateStr = line.substr(pos2 + 1);
+                stringstream ss(rateStr);
+                double rate;
+                if (ss >> rate) {
+                    for (int i = 0; i < code.length(); i++) code[i] = toupper(code[i]);
+                    codes[count] = code;
+                    currencies[count] = new Currency(name, rate);
+                    count++;
+                } else {
+                    cerr << "Invalid rate in file: " << line << endl;
+                }
+            }
+        }
+        fin.close();
+    }
+
+    Currency* getCurrency(string& code) {
+        string upperCode = code;
+        for (int i = 0; i < upperCode.length(); i++) upperCode[i] = toupper(upperCode[i]);
+        for (int i = 0; i < count; i++) {
+            if (codes[i] == upperCode) return currencies[i];
+        }
+        return 0;
+    }
+
+    int getCount() { return count; }
+
+    Currency* getCurrencyByIndex(int i) { return currencies[i]; }
+
+    string getCodeByIndex(int i) { return codes[i]; }
+};
+
+#endif
+
+
+
+
+main.cpp file code:
+
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <iomanip>
+#include <graphics.h>
+#include <conio.h>
+#include <windows.h>
+#include "currencyconversions.h"
+
+using namespace std;
+
+// -------------------- Base Class --------------------
+class Person {
+protected:
+    string name, email, phone;
+public:
+    Person(string n, string e, string p) : name(n), email(e), phone(p) {}
+    virtual void logToFile() = 0;
+};
+
+// -------------------- User Class --------------------
+class User : public Person {
+    int userID;
+public:
+    User(string n, string e, string p) : Person(n, e, p), userID(1) {
+        ifstream fin("user_logs.txt");
+        string line;
+        while (getline(fin, line)) {
+            if (line.find("User ID:") != string::npos) {
+                userID++;
+            }
+        }
+        fin.close();
+    }
+
+    void logToFile() override {
+        ofstream fout("user_logs.txt", ios::app);
+        fout << "\nUser ID: " << userID
+             << ", Name: " << name
+             << ", Email: " << email
+             << ", Phone: " << phone << endl;
+        fout.close();
+    }
+
+ public:
+    int getID() const { return userID; }
+    string getName() const { return name; }
+    string getEmail() const { return email; }
+    string getPhone() const { return phone; }
+};
+
+// Now define operator<< outside the class (no friend needed)
+ostream& operator<<(ostream& out, const User& u) {
+    out << "User ID: " << u.getID()
+        << ", Name: " << u.getName()
+        << ", Email: " << u.getEmail()
+        << ", Phone: " << u.getPhone();
+    return out;
+}
+
+// -------------------- Menu Base Class --------------------
+class BaseMenu {
+protected:
+    string options[3] = {"Convert Currency", "View Board", "Exit"};
+public:
+    virtual void showMenu(int) = 0;
+};
+
+// -------------------- Inherited Menu Class --------------------
+class Menu : public BaseMenu {
+public:
+    void showMenu(int highlight) override {
+        system("cls");
+        cout << "\nUse UP/DOWN arrow keys to move, ENTER to select.\n\n";
+        for (int i = 0; i < 3; i++) {
+            if (i == highlight) {
+                cout << "\033[32m";  // ANSI code for green text
+            }
+            cout << (char)(i + 'a') << ". " << options[i] << endl;
+            if (i == highlight) {
+                cout << "\033[0m";  // Reset color
+            }
+        }
+    }
+};
+
+
+
+// -------------------- Logger Class --------------------
+class Logger {
+public:
+    void logConversion(int userID, string from, string to, double amount, double result) {
+        ofstream log("user_logs.txt", ios::app);
+        log << "Conversion (User " << userID << "): " << from << " -> PKR -> " << to
+            << " | Amount: " << amount << " => " << result << endl;
+        log.close();
+
+        ofstream usage("graph_log.txt", ios::app);
+        usage << to << endl;
+        usage.close();
+    }
+};
+
+// -------------------- GraphViewer Class --------------------
+class GraphViewer {
+public:
+    void show() {
+        ifstream fin("graph_log.txt");
+        if (!fin.is_open()) return;
+
+        string codes[100];
+        int counts[100];
+        int size = 0;
+        string line;
+
+        while (getline(fin, line)) {
+            bool found = false;
+            for (int i = 0; i < size; i++) {
+                if (codes[i] == line) {
+                    counts[i]++;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                codes[size] = line;
+                counts[size] = 1;
+                size++;
+            }
+        }
+        fin.close();
+
+        initwindow(1000, 600, "Currency Usage Graph");
+        setbkcolor(WHITE);
+        cleardevice();
+
+        int x = 100, y = 500, width = 30, spacing = 20, maxHeight = 300;
+        int maxCount = 1;
+        for (int i = 0; i < size; i++) {
+            if (counts[i] > maxCount) maxCount = counts[i];
+        }
+
+        for (int i = 0; i < size; i++) {
+            int height = (counts[i] * maxHeight) / maxCount;
+            setfillstyle(SOLID_FILL, (i + 2) % 15 + 1);
+            bar(x, y - height, x + width, y);
+            setcolor(BLACK);
+            outtextxy(x, y + 10, (char*)codes[i].c_str());
+            x += width + spacing;
+        }
+
+        delay(6000);
+        closegraph();
+    }
+};
+
+// -------------------- Welcome Screen --------------------
+class WelcomeScreen {
+public:
+    void show() {
+        initwindow(600, 300, "Welcome");
+        setbkcolor(BLUE);
+        cleardevice();
+        setcolor(YELLOW);
+        settextstyle(BOLD_FONT, HORIZ_DIR, 3);
+        outtextxy(50, 100, (char*)"Welcome to Currency Converter!");
+        delay(2500);
+        closegraph();
+    }
+};
+
+// -------------------- Currency Listing --------------------
+void listCurrencies(CurrencyManager& manager) {
+    cout << "\nAvailable Currencies:\n";
+    for (int i = 0; i < manager.getCount(); i++) {
+        cout << manager.getCodeByIndex(i) << " - " << manager.getCurrencyByIndex(i)->getName() << endl;
+    }
+}
+
+// -------------------- Board Display --------------------
+void showBoard(CurrencyManager& manager) {
+    cout << left << setw(25) << "Currency Name" << setw(10) << "Code" << setw(15) << "Rate to PKR" << endl;
+    cout << "-------------------------------------------------------------\n";
+    for (int i = 0; i < manager.getCount(); i++) {
+        cout << left << setw(25) << manager.getCurrencyByIndex(i)->getName()
+             << setw(10) << manager.getCodeByIndex(i)
+             << setw(15) << fixed << setprecision(2)
+             << manager.getCurrencyByIndex(i)->convertToPKR(1.0) << endl;
+    }
+}
+
+// -------------------- Main Function --------------------
+int main() {
+    WelcomeScreen welcome;
+    welcome.show();
+
+    string name, email, phone;
+    cout << "Enter your name: "; getline(cin, name);
+    cout << "Enter email: "; getline(cin, email);
+    cout << "Enter phone: "; getline(cin, phone);
+
+    Person* person = new User(name, email, phone);
+    person->logToFile();
+    cout << "\nAccount created successfully!\n";
+    cout << "Use UP/DOWN arrow keys to move, ENTER to select.\n\n";
+
+    CurrencyManager* manager = new CurrencyManager;
+    Logger logger;
+    GraphViewer graph;
+    BaseMenu* menu = new Menu;
+
+    int highlight = 0;
+    while (true) {
+        menu->showMenu(highlight);
+        int key = _getch();
+        if (key == 224) {
+            key = _getch();
+            if (key == 72) highlight = (highlight + 2) % 3; // UP
+            if (key == 80) highlight = (highlight + 1) % 3; // DOWN
+        } else if (key == 13) { // ENTER
+            ofstream log("user_logs.txt", ios::app);
+            log << "User selected option " << (char)(highlight + 'a') << endl;
+            log.close();
+
+            if (highlight == 0)
+            {
+                manager->loadFromFile("currencyexchange_rates.txt");
+                listCurrencies(*manager);
+                cout << "\nSelect currency you want to convert to PKR or any other currency:\n";
+
+                string fromCode, toCode;
+                double amount;
+                cout << "\nFrom: "; cin >> fromCode;
+                cout << "To: "; cin >> toCode;
+                cout << "Amount: "; cin >> amount;
+
+                Currency* from = manager->getCurrency(fromCode);
+                Currency* to = manager->getCurrency(toCode);
+
+                if (from && to)
+                {
+                double inPKR = (*from) * amount;      // Overloaded * operator
+               double result = (*to) / inPKR;
+    // Overloaded / operator
+                cout << fixed << setprecision(2)
+                << amount << " " << fromCode
+                << " = " << result << " " << toCode << "\n" << endl;
+                logger.logConversion(((User*)person)->getID(), fromCode, toCode, amount, result);
+                }
+              else
+                {
+                    cout << "Invalid currency code!\n";
+                }
+            } else if (highlight == 1) {
+                manager->loadFromFile("currencyexchange_rates.txt");
+                showBoard(*manager);
+            } else if (highlight == 2) {
+                cout << "\nThanks for using our converter!\n";
+                graph.show();
+                break;
+            }
+            system("pause");
+        }
+    }
+
+    delete person;
+    manager->cleanup();
+    delete manager;
+    delete menu;
+    return 0;
+}
