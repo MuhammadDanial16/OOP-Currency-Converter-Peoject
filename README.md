@@ -2,6 +2,7 @@ OOP-Currency-Converter-Peoject
 
 Objectives: 
 The primary objectives of this Currency Converter project are: 
+
  Implement 100% Object-Oriented Programming in C++ using all major  
 OOP concepts. 
  
