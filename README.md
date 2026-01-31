@@ -1,4 +1,4 @@
-OOP-Currency-Converter-Peoject
+OOP-Currency-Converter-Project:
 
 Objectives: 
 The primary objectives of this Currency Converter project are: 
